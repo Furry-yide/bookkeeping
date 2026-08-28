@@ -7,6 +7,8 @@ const sources = ref([])
 const transactions = ref([])
 const month = ref(currentMonth())
 const type = ref('expense')
+const filterType = ref('')
+const filterSource = ref(null)
 const form = ref({ amount: '', category_id: null, payment_source_id: null, note: '', occurred_at: toLocalInput(new Date()) })
 const loading = ref(false)
 
@@ -29,7 +31,10 @@ async function loadSources() {
   }
 }
 async function loadTransactions() {
-  const { data } = await http.get('/transactions', { params: { month: month.value } })
+  const params = { month: month.value }
+  if (filterType.value) params.type = filterType.value
+  if (filterSource.value) params.payment_source_id = filterSource.value
+  const { data } = await http.get('/transactions', { params })
   transactions.value = data
 }
 async function submit() {
@@ -103,6 +108,18 @@ function srcOf(id) { return sources.value.find(s => s.id === id) }
         <h3 class="title" style="margin:0">明细</h3>
         <input v-model="month" type="month" @change="loadTransactions" />
       </div>
+      <div class="filters">
+        <select v-model="filterType" @change="loadTransactions">
+          <option value="">全部类型</option>
+          <option value="income">收入</option>
+          <option value="expense">支出</option>
+        </select>
+        <select v-model="filterSource" @change="loadTransactions">
+          <option :value="null">全部支付源</option>
+          <option v-for="s in sources" :key="s.id" :value="s.id">{{ s.icon }} {{ s.name }}</option>
+        </select>
+        <button class="btn ghost small" @click="filterType=''; filterSource=null; loadTransactions()">重置</button>
+      </div>
       <p v-if="!transactions.length" class="muted">本月还没有记录~</p>
       <ul class="list">
         <li v-for="t in transactions" :key="t.id" class="item">
@@ -133,6 +150,8 @@ function srcOf(id) { return sources.value.find(s => s.id === id) }
 .full { width: 100%; margin-bottom: 10px; }
 .btn.block { width: 100%; margin-top: 4px; }
 .list { list-style: none; padding: 0; margin: 10px 0 0; }
+.filters { display: flex; gap: 8px; margin: 14px 0 4px; flex-wrap: wrap; }
+.filters select { flex: 1; min-width: 120px; }
 .item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .item:last-child { border-bottom: none; }
 .ico { font-size: 22px; width: 38px; height: 38px; display: grid; place-items: center; background: var(--bg); border-radius: 10px; }

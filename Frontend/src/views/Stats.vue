@@ -4,6 +4,7 @@ import http from '../api'
 
 const month = ref(currentMonth())
 const summary = ref({ total_income: 0, total_expense: 0, balance: 0, by_category: [] })
+const sourceBalances = ref([])
 
 const palette = ['#ff9a3c','#ff5b5b','#2ecc71','#5b8def','#a66bff','#ffce54','#3ec9c9','#ff7eb6','#9aa0b4']
 const total = computed(() => summary.value.by_category.reduce((s, c) => s + c.total, 0))
@@ -29,6 +30,8 @@ const donut = computed(() => {
 async function load() {
   const { data } = await http.get('/stats/summary', { params: { month: month.value } })
   summary.value = data
+  const { data: sb } = await http.get('/stats/source-balances')
+  sourceBalances.value = sb
 }
 function exportCsv() {
   const rows = [['分类','金额']]
@@ -93,6 +96,19 @@ function fmt(n) { return Number(n).toLocaleString('zh-CN', { minimumFractionDigi
       </div>
       <p v-else class="muted">本月暂无支出数据~</p>
     </section>
+
+    <section class="card">
+      <h3 class="title">支付源余额</h3>
+      <div class="src-list">
+        <div v-for="s in sourceBalances" :key="s.id" class="src-row">
+          <span class="src-ico">{{ s.icon }}</span>
+          <span class="src-name">{{ s.name }}</span>
+          <span class="muted small">收 {{ fmt(s.income) }} / 支 {{ fmt(s.expense) }}</span>
+          <span class="src-bal" :class="s.balance>=0?'income':'expense'">{{ fmt(s.balance) }}</span>
+        </div>
+        <p v-if="!sourceBalances.length" class="muted">暂无支付源数据~</p>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -110,4 +126,10 @@ function fmt(n) { return Number(n).toLocaleString('zh-CN', { minimumFractionDigi
 .lg-name { flex: 1; }
 .btn.small { padding: 5px 10px; font-size: 12px; }
 .small { font-size: 12px; }
+.src-list { display: flex; flex-direction: column; gap: 4px; }
+.src-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.src-row:last-child { border-bottom: none; }
+.src-ico { font-size: 20px; width: 36px; height: 36px; display: grid; place-items: center; background: var(--bg); border-radius: 10px; }
+.src-name { font-weight: 600; width: 90px; }
+.src-bal { margin-left: auto; font-weight: 800; font-size: 16px; }
 </style>

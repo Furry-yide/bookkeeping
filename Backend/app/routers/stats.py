@@ -73,3 +73,40 @@ def budget_progress(month: str = Query(..., description="YYYY-MM"), db: Session 
         "percent": round(spent / limit * 100, 1) if limit else 0,
         "over": spent > limit,
     }
+
+
+@router.get("/source-balances")
+def source_balances(db: Session = Depends(get_db)):
+    rows = (
+        db.query(
+            models.PaymentSource.id,
+            models.PaymentSource.name,
+            models.PaymentSource.icon,
+            func.coalesce(
+                func.sum(case((models.Transaction.type == "income", models.Transaction.amount), else_=0)),
+                0,
+            ).label("income"),
+            func.coalesce(
+                func.sum(case((models.Transaction.type == "expense", models.Transaction.amount), else_=0)),
+                0,
+            ).label("expense"),
+        )
+        .outerjoin(
+            models.Transaction,
+            models.Transaction.payment_source_id == models.PaymentSource.id,
+        )
+        .group_by(models.PaymentSource.id)
+        .order_by(models.PaymentSource.id)
+        .all()
+    )
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "icon": r.icon,
+            "income": float(r.income),
+            "expense": float(r.expense),
+            "balance": float(r.income) - float(r.expense),
+        }
+        for r in rows
+    ]
