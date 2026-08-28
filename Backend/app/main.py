@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
 from app import models
-from app.routers import transactions, categories, budgets, stats, paymentsources, auth
+from app.routers import transactions, categories, budgets, stats, paymentsources, auth, backup
 
 app = FastAPI(title="小猫的账本 API", version="1.0.0")
 
@@ -21,6 +21,7 @@ app.include_router(budgets.router)
 app.include_router(stats.router)
 app.include_router(paymentsources.router)
 app.include_router(auth.router)
+app.include_router(backup.router)
 
 
 @app.on_event("startup")
