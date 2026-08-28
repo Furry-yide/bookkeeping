@@ -33,16 +33,31 @@ async function load() {
   const { data: sb } = await http.get('/stats/source-balances')
   sourceBalances.value = sb
 }
-function exportCsv() {
-  const rows = [['分类','金额']]
-  summary.value.by_category.forEach(c => rows.push([c.name, c.total]))
-  rows.push(['总收入', summary.value.total_income])
-  rows.push(['总支出', summary.value.total_expense])
-  const csv = '\uFEFF' + rows.map(r => r.join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv' })
+async function exportCsv() {
+  const [{ data: txs }, { data: cats }, { data: srcs }] = await Promise.all([
+    http.get('/transactions', { params: { month: month.value } }),
+    http.get('/categories'),
+    http.get('/payment-sources'),
+  ])
+  const catMap = Object.fromEntries(cats.map(c => [c.id, c]))
+  const srcMap = Object.fromEntries(srcs.map(s => [s.id, s]))
+  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const rows = [['日期', '类型', '分类', '支付源', '金额', '备注']]
+  txs.forEach(t => {
+    rows.push([
+      new Date(t.occurred_at).toLocaleString('zh-CN'),
+      t.type === 'income' ? '收入' : '支出',
+      catMap[t.category_id]?.name || '',
+      t.payment_source_id != null ? (srcMap[t.payment_source_id]?.name || '') : '',
+      t.amount,
+      t.note || '',
+    ])
+  })
+  const csv = '\uFEFF' + rows.map(r => r.map(esc).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = `账本统计_${month.value}.csv`
+  a.download = `账本流水_${month.value}.csv`
   a.click()
 }
 
