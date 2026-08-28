@@ -44,11 +44,22 @@ async function exportCsv() {
   const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
   const rows = [['日期', '类型', '分类', '支付源', '金额', '备注']]
   txs.forEach(t => {
+    let typeLabel = t.type === 'income' ? '收入' : (t.type === 'expense' ? '支出' : '转账')
+    let catName = catMap[t.category_id]?.name || ''
+    let srcName = ''
+    if (t.type === 'transfer') {
+      catName = '转账'
+      const f = t.payment_source_id != null ? srcMap[t.payment_source_id]?.name : ''
+      const to = t.transfer_to_id != null ? srcMap[t.transfer_to_id]?.name : ''
+      srcName = `${f} → ${to}`
+    } else {
+      srcName = t.payment_source_id != null ? (srcMap[t.payment_source_id]?.name || '') : ''
+    }
     rows.push([
       new Date(t.occurred_at).toLocaleString('zh-CN'),
-      t.type === 'income' ? '收入' : '支出',
-      catMap[t.category_id]?.name || '',
-      t.payment_source_id != null ? (srcMap[t.payment_source_id]?.name || '') : '',
+      typeLabel,
+      catName,
+      srcName,
       t.amount,
       t.note || '',
     ])

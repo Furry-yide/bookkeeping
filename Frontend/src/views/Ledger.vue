@@ -10,7 +10,8 @@ const month = ref(currentMonth())
 const type = ref('expense')
 const filterType = ref('')
 const filterSource = ref(null)
-const form = ref({ amount: '', category_id: null, payment_source_id: null, note: '', occurred_at: toLocalInput(new Date()) })
+const form = ref({ amount: '', category_id: null, payment_source_id: null, transfer_to_id: null, note: '', occurred_at: toLocalInput(new Date()) })
+const editingId = ref(null)
 const loading = ref(false)
 
 const filteredCats = computed(() =>
@@ -39,19 +40,27 @@ async function loadTransactions() {
   transactions.value = data
 }
 async function submit() {
-  if (!form.value.amount || !form.value.category_id) return
+  if (!form.value.amount) return
+  if (type.value === 'transfer') {
+    if (!form.value.payment_source_id || !form.value.transfer_to_id) return
+  } else if (!form.value.category_id) return
   loading.value = true
   try {
-    await http.post('/transactions', {
+    const payload = {
       amount: Number(form.value.amount),
       type: type.value,
-      category_id: form.value.category_id,
+      category_id: type.value === 'transfer' ? null : form.value.category_id,
       payment_source_id: form.value.payment_source_id || null,
+      transfer_to_id: type.value === 'transfer' ? (form.value.transfer_to_id || null) : null,
       note: form.value.note,
-      occurred_at: new Date(form.value.occurred_at).toISOString(),
-    })
-    form.value.amount = ''
-    form.value.note = ''
+      occurred_at: form.value.occurred_at,
+    }
+    if (editingId.value) {
+      await http.put(`/transactions/${editingId.value}`, payload)
+    } else {
+      await http.post('/transactions', payload)
+    }
+    resetForm()
     await loadTransactions()
   } finally { loading.value = false }
 }
@@ -60,9 +69,42 @@ async function remove(id) {
   await loadTransactions()
 }
 
-function onTypeChange() {
-  const c = filteredCats.value[0]
-  form.value.category_id = c ? c.id : null
+function setType(t) {
+  type.value = t
+  if (t === 'transfer') {
+    form.value.category_id = null
+    form.value.transfer_to_id = sources.value.length > 1 ? sources.value[1].id : (sources.value[0]?.id ?? null)
+  } else {
+    form.value.transfer_to_id = null
+    form.value.category_id = filteredCats.value.length ? filteredCats.value[0].id : null
+  }
+}
+
+function editTx(t) {
+  editingId.value = t.id
+  type.value = t.type
+  form.value.amount = t.amount
+  form.value.note = t.note || ''
+  form.value.payment_source_id = t.payment_source_id
+  if (t.type === 'transfer') {
+    form.value.category_id = null
+    form.value.transfer_to_id = t.transfer_to_id
+  } else {
+    form.value.category_id = t.category_id
+    form.value.transfer_to_id = null
+  }
+  form.value.occurred_at = toLocalInput(new Date(t.occurred_at))
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function resetForm() {
+  editingId.value = null
+  form.value.amount = ''
+  form.value.note = ''
+  form.value.transfer_to_id = null
+  form.value.category_id = filteredCats.value.length ? filteredCats.value[0].id : null
+  form.value.payment_source_id = sources.value.length ? sources.value[0].id : null
+  form.value.occurred_at = toLocalInput(new Date())
 }
 
 onMounted(async () => { await loadCategories(); await loadSources(); await loadTransactions() })
@@ -88,24 +130,34 @@ function srcOf(id) { return sources.value.find(s => s.id === id) }
     <section class="card">
       <h3 class="title">记一笔</h3>
       <div class="type-toggle">
-        <button :class="{ on: type==='expense' }" @click="type='expense'; onTypeChange()">支出</button>
-        <button :class="{ on: type==='income' }" @click="type='income'; onTypeChange()">收入</button>
+        <button :class="{ on: type==='expense' }" @click="setType('expense')">支出</button>
+        <button :class="{ on: type==='income' }" @click="setType('income')">收入</button>
+        <button :class="{ on: type==='transfer' }" @click="setType('transfer')">转账</button>
       </div>
       <div class="grid">
         <input v-model.number="form.amount" type="number" step="0.01" placeholder="金额" />
-        <select v-model="form.category_id">
+        <select v-if="type!=='transfer'" v-model="form.category_id">
           <option v-for="c in filteredCats" :key="c.id" :value="c.id">{{ c.icon }} {{ c.name }}</option>
+        </select>
+        <select v-else v-model="form.payment_source_id">
+          <option :value="null">转出支付源</option>
+          <option v-for="s in sources" :key="s.id" :value="s.id">{{ s.icon }} {{ s.name }}</option>
         </select>
       </div>
       <div class="grid">
-        <select v-model="form.payment_source_id">
+        <select v-if="type!=='transfer'" v-model="form.payment_source_id">
           <option :value="null">选择支付源</option>
+          <option v-for="s in sources" :key="s.id" :value="s.id">{{ s.icon }} {{ s.name }}</option>
+        </select>
+        <select v-else v-model="form.transfer_to_id">
+          <option :value="null">转入支付源</option>
           <option v-for="s in sources" :key="s.id" :value="s.id">{{ s.icon }} {{ s.name }}</option>
         </select>
         <input v-model="form.note" placeholder="备注（可选）" />
       </div>
       <input v-model="form.occurred_at" type="datetime-local" class="full" />
-      <button class="btn block" :disabled="loading" @click="!isLoggedIn ? openLogin() : submit()">添加记录</button>
+      <button class="btn block" :disabled="loading" @click="!isLoggedIn ? openLogin() : submit()">{{ editingId ? '保存修改' : '添加记录' }}</button>
+      <button v-if="editingId" class="btn ghost block" @click="resetForm()">取消编辑</button>
     </section>
 
     <section class="card">
@@ -128,14 +180,19 @@ function srcOf(id) { return sources.value.find(s => s.id === id) }
       <p v-if="!transactions.length" class="muted">本月还没有记录~</p>
       <ul class="list">
         <li v-for="t in transactions" :key="t.id" class="item">
-          <span class="ico">{{ catOf(t.category_id)?.icon || '💰' }}</span>
+          <span class="ico">{{ t.type==='transfer' ? '🔁' : (catOf(t.category_id)?.icon || '💰') }}</span>
           <div class="meta">
-            <div class="name">{{ catOf(t.category_id)?.name || '未分类' }}
+            <div v-if="t.type==='transfer'" class="name">转账
+              <span class="muted small">· {{ srcOf(t.payment_source_id)?.icon }} {{ srcOf(t.payment_source_id)?.name }} → {{ srcOf(t.transfer_to_id)?.icon }} {{ srcOf(t.transfer_to_id)?.name }}<template v-if="t.note"> · {{ t.note }}</template></span>
+            </div>
+            <div v-else class="name">{{ catOf(t.category_id)?.name || '未分类' }}
               <span class="muted small">· {{ srcOf(t.payment_source_id)?.icon || '💳' }} {{ srcOf(t.payment_source_id)?.name || '无支付源' }}<template v-if="t.note"> · {{ t.note }}</template></span>
             </div>
             <div class="muted small">{{ new Date(t.occurred_at).toLocaleString('zh-CN') }}</div>
           </div>
-          <span :class="t.type" class="amt">{{ t.type==='income'?'+':'-' }}{{ fmt(t.amount) }}</span>
+          <span v-if="t.type==='transfer'" class="amt transfer">⇄ {{ fmt(t.amount) }}</span>
+          <span v-else :class="t.type" class="amt">{{ t.type==='income'?'+':'-' }}{{ fmt(t.amount) }}</span>
+          <button class="btn ghost small" @click="!isLoggedIn ? openLogin() : editTx(t)">改</button>
           <button class="btn ghost small" @click="!isLoggedIn ? openLogin() : remove(t.id)">删</button>
         </li>
       </ul>
@@ -175,5 +232,6 @@ function srcOf(id) { return sources.value.find(s => s.id === id) }
 .name { font-weight: 600; }
 .small { font-size: 12px; }
 .amt { font-weight: 700; }
+.transfer { color: var(--primary); }
 .btn.small { padding: 5px 10px; font-size: 12px; }
 </style>

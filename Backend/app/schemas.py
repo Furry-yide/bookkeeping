@@ -33,9 +33,10 @@ class PaymentSourceOut(PaymentSourceBase):
 
 class TransactionBase(BaseModel):
     amount: float
-    type: str  # income / expense
-    category_id: int
+    type: str  # income / expense / transfer
+    category_id: int | None = None
     payment_source_id: int | None = None
+    transfer_to_id: int | None = None
     note: str = ""
     occurred_at: datetime | None = None
 
@@ -49,6 +50,7 @@ class TransactionOut(TransactionBase):
     id: int
     category: CategoryOut | None = None
     payment_source: PaymentSourceOut | None = None
+    transfer_to: PaymentSourceOut | None = None
 
 
 class BudgetBase(BaseModel):

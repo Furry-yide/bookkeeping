@@ -25,7 +25,9 @@ class PaymentSource(Base):
     name = Column(String(50), nullable=False)
     icon = Column(String(20), default="💳")
 
-    transactions = relationship("Transaction", back_populates="payment_source")
+    transactions = relationship(
+        "Transaction", foreign_keys="Transaction.payment_source_id", back_populates="payment_source"
+    )
 
 
 class User(Base):
@@ -41,14 +43,18 @@ class Transaction(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     amount = Column(Float, nullable=False)
-    type = Column(String(10), nullable=False)  # income / expense
-    category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
+    type = Column(String(10), nullable=False)  # income / expense / transfer
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     payment_source_id = Column(Integer, ForeignKey("payment_sources.id"), nullable=True)
+    transfer_to_id = Column(Integer, ForeignKey("payment_sources.id"), nullable=True)
     note = Column(Text, default="")
-    occurred_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    occurred_at = Column(DateTime, nullable=False, default=datetime.now)
 
     category = relationship("Category", back_populates="transactions")
-    payment_source = relationship("PaymentSource", back_populates="transactions")
+    payment_source = relationship(
+        "PaymentSource", foreign_keys=[payment_source_id], back_populates="transactions"
+    )
+    transfer_to = relationship("PaymentSource", foreign_keys=[transfer_to_id])
 
 
 class Budget(Base):

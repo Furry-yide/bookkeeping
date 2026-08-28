@@ -77,36 +77,33 @@ def budget_progress(month: str = Query(..., description="YYYY-MM"), db: Session 
 
 @router.get("/source-balances")
 def source_balances(db: Session = Depends(get_db)):
-    rows = (
-        db.query(
-            models.PaymentSource.id,
-            models.PaymentSource.name,
-            models.PaymentSource.icon,
-            func.coalesce(
-                func.sum(case((models.Transaction.type == "income", models.Transaction.amount), else_=0)),
-                0,
-            ).label("income"),
-            func.coalesce(
-                func.sum(case((models.Transaction.type == "expense", models.Transaction.amount), else_=0)),
-                0,
-            ).label("expense"),
-        )
-        .outerjoin(
-            models.Transaction,
-            models.Transaction.payment_source_id == models.PaymentSource.id,
-        )
-        .group_by(models.PaymentSource.id)
-        .order_by(models.PaymentSource.id)
-        .all()
-    )
-    return [
-        {
-            "id": r.id,
-            "name": r.name,
-            "icon": r.icon,
-            "income": float(r.income),
-            "expense": float(r.expense),
-            "balance": float(r.income) - float(r.expense),
-        }
-        for r in rows
-    ]
+    result = []
+    for s in db.query(models.PaymentSource).order_by(models.PaymentSource.id).all():
+        income = db.query(func.coalesce(func.sum(models.Transaction.amount), 0)).filter(
+            models.Transaction.type == "income",
+            models.Transaction.payment_source_id == s.id,
+        ).scalar()
+        expense = db.query(func.coalesce(func.sum(models.Transaction.amount), 0)).filter(
+            models.Transaction.type == "expense",
+            models.Transaction.payment_source_id == s.id,
+        ).scalar()
+        # 转账：转入视为收入，转出（payment_source_id）视为支出
+        transfer_in = db.query(func.coalesce(func.sum(models.Transaction.amount), 0)).filter(
+            models.Transaction.type == "transfer",
+            models.Transaction.transfer_to_id == s.id,
+        ).scalar()
+        transfer_out = db.query(func.coalesce(func.sum(models.Transaction.amount), 0)).filter(
+            models.Transaction.type == "transfer",
+            models.Transaction.payment_source_id == s.id,
+        ).scalar()
+        inc = float(income) + float(transfer_in)
+        exp = float(expense) + float(transfer_out)
+        result.append({
+            "id": s.id,
+            "name": s.name,
+            "icon": s.icon,
+            "income": inc,
+            "expense": exp,
+            "balance": inc - exp,
+        })
+    return result
