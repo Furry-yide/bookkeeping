@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { ui } from '../store'
-import { login, state } from '../auth'
+import { login } from '../auth'
 
 const username = ref('')
 const password = ref('')

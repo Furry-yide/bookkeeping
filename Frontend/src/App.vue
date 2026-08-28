@@ -2,7 +2,7 @@
 import { useRoute } from 'vue-router'
 import { computed, onMounted } from 'vue'
 import LoginModal from './components/LoginModal.vue'
-import { isLoggedIn, state, logout, openLogin, loadMe } from './auth'
+import { isLoggedIn, authState, logout, openLogin, loadMe } from './auth'
 
 const route = useRoute()
 const tabs = [
@@ -21,7 +21,7 @@ onMounted(loadMe)
     <header class="topbar">
       <div class="brand">🐱 小猫的账本</div>
       <div class="auth">
-        <button v-if="isLoggedIn" class="me" @click="logout">👤 {{ state.user || '已登录' }} · 退出</button>
+        <button v-if="isLoggedIn" class="me" @click="logout">👤 {{ authState.user || '已登录' }} · 退出</button>
         <button v-else class="me ghost" @click="openLogin">🔓 登录</button>
       </div>
       <nav class="tabs">

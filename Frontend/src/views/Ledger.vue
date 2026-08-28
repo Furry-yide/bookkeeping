@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import http from '../api'
+import { isLoggedIn, openLogin } from '../auth'
 
 const categories = ref([])
 const sources = ref([])
@@ -80,6 +81,10 @@ function srcOf(id) { return sources.value.find(s => s.id === id) }
 
 <template>
   <div class="stack">
+    <div v-if="!isLoggedIn" class="ro-banner">
+      🔒 当前为<strong>只读模式</strong>，登录后可记账 / 删除。
+      <button class="link" @click="openLogin">去登录</button>
+    </div>
     <section class="card">
       <h3 class="title">记一笔</h3>
       <div class="type-toggle">
@@ -100,7 +105,7 @@ function srcOf(id) { return sources.value.find(s => s.id === id) }
         <input v-model="form.note" placeholder="备注（可选）" />
       </div>
       <input v-model="form.occurred_at" type="datetime-local" class="full" />
-      <button class="btn block" :disabled="loading" @click="submit">添加记录</button>
+      <button class="btn block" :disabled="loading" @click="!isLoggedIn ? openLogin() : submit()">添加记录</button>
     </section>
 
     <section class="card">
@@ -131,7 +136,7 @@ function srcOf(id) { return sources.value.find(s => s.id === id) }
             <div class="muted small">{{ new Date(t.occurred_at).toLocaleString('zh-CN') }}</div>
           </div>
           <span :class="t.type" class="amt">{{ t.type==='income'?'+':'-' }}{{ fmt(t.amount) }}</span>
-          <button class="btn ghost small" @click="remove(t.id)">删</button>
+          <button class="btn ghost small" @click="!isLoggedIn ? openLogin() : remove(t.id)">删</button>
         </li>
       </ul>
     </section>
@@ -140,6 +145,11 @@ function srcOf(id) { return sources.value.find(s => s.id === id) }
 
 <style scoped>
 .stack { display: flex; flex-direction: column; gap: 14px; }
+.ro-banner {
+  background: #fff7ed; border: 1px solid #ffd8a8; color: #b45309;
+  padding: 10px 14px; border-radius: 12px; font-size: 13px;
+}
+.ro-banner .link { border: none; background: none; color: var(--primary-dark); font-weight: 700; padding: 0 4px; text-decoration: underline; }
 .type-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
 .type-toggle button {
   flex: 1; padding: 9px; border-radius: 10px; border: 1px solid var(--border);
