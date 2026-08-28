@@ -29,3 +29,15 @@ def delete_source(source_id: int, db: Session = Depends(get_db)):
     db.delete(obj)
     db.commit()
     return {"ok": True}
+
+
+@router.put("/{source_id}", response_model=schemas.PaymentSourceOut)
+def update_source(source_id: int, payload: schemas.PaymentSourceCreate, db: Session = Depends(get_db)):
+    obj = db.get(models.PaymentSource, source_id)
+    if not obj:
+        raise HTTPException(404, "payment source not found")
+    obj.name = payload.name
+    obj.icon = payload.icon
+    db.commit()
+    db.refresh(obj)
+    return obj

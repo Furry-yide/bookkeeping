@@ -7,6 +7,7 @@ const tabs = [
   { to: '/ledger', label: '🐱 记账', icon: '🐱' },
   { to: '/stats', label: '📊 统计', icon: '📊' },
   { to: '/budget', label: '🎯 预算', icon: '🎯' },
+  { to: '/manage', label: '⚙️ 管理', icon: '⚙️' },
 ]
 const active = computed(() => route.path)
 </script>

@@ -36,3 +36,18 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
     db.delete(obj)
     db.commit()
     return {"ok": True}
+
+
+@router.put("/{category_id}", response_model=schemas.CategoryOut)
+def update_category(category_id: int, payload: schemas.CategoryCreate, db: Session = Depends(get_db)):
+    obj = db.get(models.Category, category_id)
+    if not obj:
+        raise HTTPException(404, "category not found")
+    if payload.type not in ("income", "expense"):
+        raise HTTPException(400, "type must be income or expense")
+    obj.name = payload.name
+    obj.type = payload.type
+    obj.icon = payload.icon
+    db.commit()
+    db.refresh(obj)
+    return obj
