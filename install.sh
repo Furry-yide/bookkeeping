@@ -8,7 +8,7 @@ set -e
 
 # ===== 可配置项 =====
 # 留空则使用脚本所在目录；填入仓库地址则会 clone/pull 到本地目录
-GITHUB_REPO=""
+GITHUB_REPO="https://github.com/Furry-yide/bookkeeping.git"
 # 例如: GITHUB_REPO="https://github.com/yourname/bookkeeping.git"
 
 SUDO=""
@@ -81,6 +81,32 @@ install_node() {
   esac
 }
 
+install_uv() {
+  command -v uv >/dev/null 2>&1 && return
+  echo "==> 安装 uv (Python 包管理器)"
+  if command -v brew >/dev/null 2>&1; then
+    brew install uv && return
+  fi
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL https://astral.sh/uv/install.sh -o /tmp/uv-install.sh
+    if sh /tmp/uv-install.sh; then
+      export PATH="$HOME/.local/bin:$PATH"
+      return
+    fi
+  fi
+  if command -v pip3 >/dev/null 2>&1; then pip3 install --user uv 2>/dev/null && return; fi
+  if command -v pip >/dev/null 2>&1; then pip install --user uv 2>/dev/null && return; fi
+  echo "⚠️  无法自动安装 uv，将回退使用系统 venv"
+}
+
+ensure_venv_pkg() {
+  case "$OS" in
+    debian) $SUDO apt-get install -y python3-venv python3-pip ;;
+    redhat) $SUDO dnf install -y python3-pip ;;
+    macos) : ;;
+  esac
+}
+
 # ===== 1. 拉取代码 =====
 install_git
 if [ -n "$GITHUB_REPO" ]; then
@@ -106,13 +132,24 @@ install_node
 echo "使用 $(python3 -V 2>&1)"
 
 # ===== 3. Python 虚拟环境 + 后端依赖 =====
-echo "==> 创建 Python 虚拟环境 ($BACKEND/venv)"
+echo "==> 准备 Python 虚拟环境 ($BACKEND/venv)"
+install_uv
 if [ ! -d "$BACKEND/venv" ]; then
-  python3 -m venv "$BACKEND/venv"
+  if command -v uv >/dev/null 2>&1; then
+    uv venv "$BACKEND/venv"
+  else
+    ensure_venv_pkg
+    python3 -m venv "$BACKEND/venv" || { ensure_venv_pkg; python3 -m venv "$BACKEND/venv"; }
+  fi
 fi
 VENV_PY="$BACKEND/venv/bin/python"
-"$VENV_PY" -m pip install --upgrade pip -q
-"$VENV_PY" -m pip install -q -r "$BACKEND/requirements.txt"
+if command -v uv >/dev/null 2>&1; then
+  uv pip install --python "$VENV_PY" --upgrade pip -q
+  uv pip install --python "$VENV_PY" -q -r "$BACKEND/requirements.txt"
+else
+  "$VENV_PY" -m pip install --upgrade pip -q
+  "$VENV_PY" -m pip install -q -r "$BACKEND/requirements.txt"
+fi
 echo "✅ 后端依赖已安装到虚拟环境"
 
 # ===== 4. 前端依赖 =====
