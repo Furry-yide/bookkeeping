@@ -107,6 +107,33 @@ ensure_venv_pkg() {
   esac
 }
 
+configure_domain() {
+  VITE="$FRONTEND/vite.config.js"
+  [ -f "$VITE" ] || return 0
+  if [ ! -t 0 ]; then
+    echo "⚠️  当前为非交互环境，跳过域名绑定配置。"
+    echo "   如需外网访问，请手动在 $VITE 的 preview.allowedHosts 中加入你的域名。"
+    return 0
+  fi
+  printf "是否需要绑定域名，以便通过 FRP / 反向代理从外网访问？(y/N): "
+  read -r ANS
+  case "$ANS" in
+    y|Y|yes|YES)
+      printf "请输入对外访问的域名（例如 frp-hk.furcw.net）: "
+      read -r DOMAIN
+      if [ -n "$DOMAIN" ]; then
+        sed -i.bak '/allowedHosts/d' "$VITE"
+        sed -i.bak "s|\(    port: 5173,\)|\1\n    allowedHosts: ['$DOMAIN', 'localhost', '127.0.0.1'],|g" "$VITE"
+        rm -f "$VITE.bak"
+        echo "✅ 已将 $DOMAIN 写入 $VITE 的 allowedHosts（server 与 preview 均已包含）"
+        echo "   请重新运行 ./start.sh，让 vite preview 加载新配置后外网即可访问。"
+      else
+        echo "⚠️  未输入域名，已跳过"
+      fi ;;
+    *) echo "⚠️  跳过域名绑定（仅内网 / localhost 可访问）" ;;
+  esac
+}
+
 # ===== 1. 拉取代码 =====
 install_git
 if [ -n "$GITHUB_REPO" ]; then
@@ -165,6 +192,9 @@ if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
 else
   echo "⚠️  未安装 Node.js，已跳过前端依赖（Vue 环境不完整）"
 fi
+
+# ===== 5. 域名绑定（外网访问） =====
+configure_domain
 
 echo ""
 echo "🎉 环境配置完成，运行 ./start.sh 启动服务。"
