@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import http from '../api'
+import { isLoggedIn, openLogin } from '../auth'
 
 const month = ref(currentMonth())
 const budget = ref(null)
@@ -49,6 +50,10 @@ function fmt(n) { return Number(n||0).toLocaleString('zh-CN', { minimumFractionD
 
 <template>
   <div class="stack">
+    <div v-if="!isLoggedIn" class="ro-banner">
+      🔒 当前为<strong>只读模式</strong>，登录后可设置 / 修改预算。
+      <button class="link" @click="openLogin">去登录</button>
+    </div>
     <section class="card">
       <div class="row spread">
         <h3 class="title" style="margin:0">月度预算</h3>
@@ -56,7 +61,7 @@ function fmt(n) { return Number(n||0).toLocaleString('zh-CN', { minimumFractionD
       </div>
       <div class="row" style="margin-top:12px">
         <input v-model.number="form.limit_amount" type="number" step="0.01" placeholder="设置本月支出预算" style="flex:1" />
-        <button class="btn" :disabled="loading" @click="save">保存</button>
+        <button class="btn" :disabled="loading" @click="!isLoggedIn ? openLogin() : save()">保存</button>
       </div>
     </section>
 
@@ -86,6 +91,11 @@ function fmt(n) { return Number(n||0).toLocaleString('zh-CN', { minimumFractionD
 
 <style scoped>
 .stack { display: flex; flex-direction: column; gap: 14px; }
+.ro-banner {
+  background: #fff7ed; border: 1px solid #ffd8a8; color: #b45309;
+  padding: 10px 14px; border-radius: 12px; font-size: 13px;
+}
+.ro-banner .link { border: none; background: none; color: var(--primary-dark); font-weight: 700; padding: 0 4px; text-decoration: underline; }
 .nums { display: flex; gap: 16px; margin: 14px 0 10px; font-size: 15px; font-weight: 600; flex-wrap: wrap; }
 .bar { height: 14px; background: var(--bg); border-radius: 99px; overflow: hidden; }
 .fill { height: 100%; border-radius: 99px; transition: width 0.4s; }

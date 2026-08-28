@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app import models, schemas
+from app.routers.auth import require_auth
 
 router = APIRouter(prefix="/api/payment-sources", tags=["payment-sources"])
 
@@ -13,7 +14,7 @@ def list_sources(db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=schemas.PaymentSourceOut)
-def create_source(payload: schemas.PaymentSourceCreate, db: Session = Depends(get_db)):
+def create_source(payload: schemas.PaymentSourceCreate, db: Session = Depends(get_db), _auth: str = Depends(require_auth)):
     obj = models.PaymentSource(**payload.model_dump())
     db.add(obj)
     db.commit()
@@ -22,7 +23,7 @@ def create_source(payload: schemas.PaymentSourceCreate, db: Session = Depends(ge
 
 
 @router.delete("/{source_id}")
-def delete_source(source_id: int, db: Session = Depends(get_db)):
+def delete_source(source_id: int, db: Session = Depends(get_db), _auth: str = Depends(require_auth)):
     obj = db.get(models.PaymentSource, source_id)
     if not obj:
         raise HTTPException(404, "payment source not found")
@@ -32,7 +33,7 @@ def delete_source(source_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{source_id}", response_model=schemas.PaymentSourceOut)
-def update_source(source_id: int, payload: schemas.PaymentSourceCreate, db: Session = Depends(get_db)):
+def update_source(source_id: int, payload: schemas.PaymentSourceCreate, db: Session = Depends(get_db), _auth: str = Depends(require_auth)):
     obj = db.get(models.PaymentSource, source_id)
     if not obj:
         raise HTTPException(404, "payment source not found")

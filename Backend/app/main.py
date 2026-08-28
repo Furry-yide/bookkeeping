@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
 from app import models
-from app.routers import transactions, categories, budgets, stats, paymentsources
+from app.routers import transactions, categories, budgets, stats, paymentsources, auth
 
 app = FastAPI(title="小猫的账本 API", version="1.0.0")
 
@@ -20,6 +20,7 @@ app.include_router(transactions.router)
 app.include_router(budgets.router)
 app.include_router(stats.router)
 app.include_router(paymentsources.router)
+app.include_router(auth.router)
 
 
 @app.on_event("startup")
@@ -27,6 +28,24 @@ def on_startup():
     init_db()
     _seed_default_categories()
     _seed_default_payment_sources()
+    _seed_default_user()
+
+
+def _seed_default_user():
+    from app.database import SessionLocal
+    from app import models
+    from app.security import hash_password
+
+    db = SessionLocal()
+    try:
+        if db.query(models.User).filter(models.User.username == "Furry-yide").count() == 0:
+            db.add(models.User(
+                username="Furry-yide",
+                password_hash=hash_password("Dede200822"),
+            ))
+            db.commit()
+    finally:
+        db.close()
 
 
 def _seed_default_categories():

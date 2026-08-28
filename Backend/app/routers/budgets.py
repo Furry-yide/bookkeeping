@@ -4,6 +4,7 @@ from sqlalchemy import func
 
 from app.database import get_db
 from app import models, schemas
+from app.routers.auth import require_auth
 
 router = APIRouter(prefix="/api/budgets", tags=["budgets"])
 
@@ -14,7 +15,7 @@ def list_budgets(db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=schemas.BudgetOut)
-def create_budget(payload: schemas.BudgetCreate, db: Session = Depends(get_db)):
+def create_budget(payload: schemas.BudgetCreate, db: Session = Depends(get_db), _auth: str = Depends(require_auth)):
     existing = db.query(models.Budget).filter(models.Budget.month == payload.month).first()
     if existing:
         raise HTTPException(400, "budget for this month already exists")
@@ -26,7 +27,7 @@ def create_budget(payload: schemas.BudgetCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{budget_id}", response_model=schemas.BudgetOut)
-def update_budget(budget_id: int, payload: schemas.BudgetCreate, db: Session = Depends(get_db)):
+def update_budget(budget_id: int, payload: schemas.BudgetCreate, db: Session = Depends(get_db), _auth: str = Depends(require_auth)):
     obj = db.get(models.Budget, budget_id)
     if not obj:
         raise HTTPException(404, "budget not found")
@@ -38,7 +39,7 @@ def update_budget(budget_id: int, payload: schemas.BudgetCreate, db: Session = D
 
 
 @router.delete("/{budget_id}")
-def delete_budget(budget_id: int, db: Session = Depends(get_db)):
+def delete_budget(budget_id: int, db: Session = Depends(get_db), _auth: str = Depends(require_auth)):
     obj = db.get(models.Budget, budget_id)
     if not obj:
         raise HTTPException(404, "budget not found")

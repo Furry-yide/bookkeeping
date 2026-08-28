@@ -1,6 +1,8 @@
 <script setup>
 import { useRoute } from 'vue-router'
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
+import LoginModal from './components/LoginModal.vue'
+import { isLoggedIn, state, logout, openLogin, loadMe } from './auth'
 
 const route = useRoute()
 const tabs = [
@@ -10,12 +12,18 @@ const tabs = [
   { to: '/manage', label: '⚙️ 管理', icon: '⚙️' },
 ]
 const active = computed(() => route.path)
+
+onMounted(loadMe)
 </script>
 
 <template>
   <div class="app">
     <header class="topbar">
       <div class="brand">🐱 小猫的账本</div>
+      <div class="auth">
+        <button v-if="isLoggedIn" class="me" @click="logout">👤 {{ state.user || '已登录' }} · 退出</button>
+        <button v-else class="me ghost" @click="openLogin">🔓 登录</button>
+      </div>
       <nav class="tabs">
         <router-link
           v-for="t in tabs"
@@ -29,6 +37,7 @@ const active = computed(() => route.path)
     <main class="content">
       <router-view />
     </main>
+    <LoginModal />
   </div>
 </template>
 
@@ -39,7 +48,10 @@ const active = computed(() => route.path)
   background: var(--bg);
   padding: 16px 0 10px;
 }
-.brand { font-size: 20px; font-weight: 800; margin-bottom: 10px; }
+.brand { font-size: 20px; font-weight: 800; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+.auth { position: absolute; top: 16px; right: 14px; }
+.me { border: none; background: var(--primary); color: #fff; font-weight: 600; padding: 6px 12px; border-radius: 10px; font-size: 13px; }
+.me.ghost { background: #fff; color: var(--muted); box-shadow: var(--shadow); }
 .tabs { display: flex; gap: 8px; }
 .tab {
   flex: 1; text-align: center;

@@ -5,6 +5,7 @@ from datetime import datetime
 
 from app.database import get_db
 from app import models, schemas
+from app.routers.auth import require_auth
 
 router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 
@@ -30,7 +31,7 @@ def list_transactions(
 
 
 @router.post("", response_model=schemas.TransactionOut)
-def create_transaction(payload: schemas.TransactionCreate, db: Session = Depends(get_db)):
+def create_transaction(payload: schemas.TransactionCreate, db: Session = Depends(get_db), _auth: str = Depends(require_auth)):
     cat = db.get(models.Category, payload.category_id)
     if not cat:
         raise HTTPException(400, "category not found")
@@ -45,7 +46,7 @@ def create_transaction(payload: schemas.TransactionCreate, db: Session = Depends
 
 
 @router.delete("/{tx_id}")
-def delete_transaction(tx_id: int, db: Session = Depends(get_db)):
+def delete_transaction(tx_id: int, db: Session = Depends(get_db), _auth: str = Depends(require_auth)):
     obj = db.get(models.Transaction, tx_id)
     if not obj:
         raise HTTPException(404, "transaction not found")

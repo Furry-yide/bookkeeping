@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import http from '../api'
+import { isLoggedIn, openLogin } from '../auth'
 
 const tab = ref('category')
 const categories = ref([])
@@ -59,6 +60,10 @@ onMounted(async () => { await loadCategories(); await loadSources() })
 
 <template>
   <div class="stack">
+    <div v-if="!isLoggedIn" class="ro-banner">
+      🔒 当前为<strong>只读模式</strong>，登录后可新增 / 编辑 / 删除。
+      <button class="link" @click="openLogin">去登录</button>
+    </div>
     <div class="tabs">
       <button :class="{ on: tab==='category' }" @click="tab='category'">📂 使用方向（分类）</button>
       <button :class="{ on: tab==='source' }" @click="tab='source'">💳 支付源</button>
@@ -74,7 +79,7 @@ onMounted(async () => { await loadCategories(); await loadSources() })
           <option value="expense">支出</option>
           <option value="income">收入</option>
         </select>
-        <button class="btn" @click="saveCat">{{ catForm.id ? '保存修改' : '添加分类' }}</button>
+        <button class="btn" :disabled="!isLoggedIn" @click="saveCat">{{ catForm.id ? '保存修改' : '添加分类' }}</button>
         <button v-if="catForm.id" class="btn ghost" @click="catForm={id:null,icon:'💰',name:'',type:'expense'}">取消</button>
       </div>
       <ul class="list">
@@ -84,8 +89,8 @@ onMounted(async () => { await loadCategories(); await loadSources() })
             <span class="tag" :class="c.type">{{ c.type==='income'?'收入':'支出' }}</span>
           </span>
           <span class="row">
-            <button class="btn ghost small" @click="editCat(c)">编辑</button>
-            <button class="btn danger small" @click="delCat(c.id)">删除</button>
+            <button class="btn ghost small" :disabled="!isLoggedIn" @click="editCat(c)">编辑</button>
+            <button class="btn danger small" :disabled="!isLoggedIn" @click="delCat(c.id)">删除</button>
           </span>
         </li>
         <p v-if="!categories.length" class="muted">暂无分类</p>
@@ -98,15 +103,15 @@ onMounted(async () => { await loadCategories(); await loadSources() })
       <div class="form">
         <input v-model="srcForm.icon" class="icon" maxlength="2" placeholder="图标" />
         <input v-model="srcForm.name" placeholder="名称，如 微信支付" />
-        <button class="btn" @click="saveSrc">{{ srcForm.id ? '保存修改' : '添加支付源' }}</button>
+        <button class="btn" :disabled="!isLoggedIn" @click="saveSrc">{{ srcForm.id ? '保存修改' : '添加支付源' }}</button>
         <button v-if="srcForm.id" class="btn ghost" @click="srcForm={id:null,icon:'💳',name:''}">取消</button>
       </div>
       <ul class="list">
         <li v-for="s in sources" :key="s.id" class="row spread">
           <span class="badge">{{ s.icon }} {{ s.name }}</span>
           <span class="row">
-            <button class="btn ghost small" @click="editSrc(s)">编辑</button>
-            <button class="btn danger small" @click="delSrc(s.id)">删除</button>
+            <button class="btn ghost small" :disabled="!isLoggedIn" @click="editSrc(s)">编辑</button>
+            <button class="btn danger small" :disabled="!isLoggedIn" @click="delSrc(s.id)">删除</button>
           </span>
         </li>
         <p v-if="!sources.length" class="muted">暂无支付源</p>
@@ -117,6 +122,11 @@ onMounted(async () => { await loadCategories(); await loadSources() })
 
 <style scoped>
 .stack { display: flex; flex-direction: column; gap: 14px; }
+.ro-banner {
+  background: #fff7ed; border: 1px solid #ffd8a8; color: #b45309;
+  padding: 10px 14px; border-radius: 12px; font-size: 13px;
+}
+.ro-banner .link { border: none; background: none; color: var(--primary-dark); font-weight: 700; padding: 0 4px; text-decoration: underline; }
 .tabs { display: flex; gap: 8px; }
 .tabs button { flex: 1; padding: 10px; border-radius: 12px; border: none; background: #fff; box-shadow: var(--shadow); font-weight: 600; color: var(--muted); }
 .tabs button.on { background: var(--primary); color: #fff; }

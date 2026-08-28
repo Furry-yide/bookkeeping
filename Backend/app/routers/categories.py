@@ -5,6 +5,7 @@ from datetime import datetime
 
 from app.database import get_db
 from app import models, schemas
+from app.routers.auth import require_auth
 
 router = APIRouter(prefix="/api/categories", tags=["categories"])
 
@@ -18,7 +19,7 @@ def list_categories(type: str | None = None, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=schemas.CategoryOut)
-def create_category(payload: schemas.CategoryCreate, db: Session = Depends(get_db)):
+def create_category(payload: schemas.CategoryCreate, db: Session = Depends(get_db), _auth: str = Depends(require_auth)):
     if payload.type not in ("income", "expense"):
         raise HTTPException(400, "type must be income or expense")
     obj = models.Category(**payload.model_dump())
@@ -29,7 +30,7 @@ def create_category(payload: schemas.CategoryCreate, db: Session = Depends(get_d
 
 
 @router.delete("/{category_id}")
-def delete_category(category_id: int, db: Session = Depends(get_db)):
+def delete_category(category_id: int, db: Session = Depends(get_db), _auth: str = Depends(require_auth)):
     obj = db.get(models.Category, category_id)
     if not obj:
         raise HTTPException(404, "category not found")
@@ -39,7 +40,7 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{category_id}", response_model=schemas.CategoryOut)
-def update_category(category_id: int, payload: schemas.CategoryCreate, db: Session = Depends(get_db)):
+def update_category(category_id: int, payload: schemas.CategoryCreate, db: Session = Depends(get_db), _auth: str = Depends(require_auth)):
     obj = db.get(models.Category, category_id)
     if not obj:
         raise HTTPException(404, "category not found")

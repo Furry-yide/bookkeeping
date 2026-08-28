@@ -28,6 +28,14 @@ class PaymentSource(Base):
     transactions = relationship("Transaction", back_populates="payment_source")
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    password_hash = Column(String(200), nullable=False)
+
+
 class Transaction(Base):
     __tablename__ = "transactions"
 
