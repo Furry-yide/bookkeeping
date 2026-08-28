@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
-from app.routers import transactions, categories, budgets, stats
+from app import models
+from app.routers import transactions, categories, budgets, stats, paymentsources
 
 app = FastAPI(title="小猫的账本 API", version="1.0.0")
 
@@ -18,12 +19,14 @@ app.include_router(categories.router)
 app.include_router(transactions.router)
 app.include_router(budgets.router)
 app.include_router(stats.router)
+app.include_router(paymentsources.router)
 
 
 @app.on_event("startup")
 def on_startup():
     init_db()
     _seed_default_categories()
+    _seed_default_payment_sources()
 
 
 def _seed_default_categories():
@@ -46,6 +49,26 @@ def _seed_default_categories():
             ]
             for name, t, icon in defaults:
                 db.add(models.Category(name=name, type=t, icon=icon))
+            db.commit()
+    finally:
+        db.close()
+
+
+def _seed_default_payment_sources():
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        if db.query(models.PaymentSource).count() == 0:
+            defaults = [
+                ("微信支付", "💚"),
+                ("支付宝", "🔵"),
+                ("银行卡", "💳"),
+                ("现金", "💵"),
+                ("其他", "🪙"),
+            ]
+            for name, icon in defaults:
+                db.add(models.PaymentSource(name=name, icon=icon))
             db.commit()
     finally:
         db.close()

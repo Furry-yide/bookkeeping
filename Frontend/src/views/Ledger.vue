@@ -3,10 +3,11 @@ import { ref, onMounted, computed } from 'vue'
 import http from '../api'
 
 const categories = ref([])
+const sources = ref([])
 const transactions = ref([])
 const month = ref(currentMonth())
 const type = ref('expense')
-const form = ref({ amount: '', category_id: null, note: '', occurred_at: toLocalInput(new Date()) })
+const form = ref({ amount: '', category_id: null, payment_source_id: null, note: '', occurred_at: toLocalInput(new Date()) })
 const loading = ref(false)
 
 const filteredCats = computed(() =>
@@ -18,6 +19,13 @@ async function loadCategories() {
   categories.value = data
   if (!form.value.category_id && filteredCats.value.length) {
     form.value.category_id = filteredCats.value[0].id
+  }
+}
+async function loadSources() {
+  const { data } = await http.get('/payment-sources')
+  sources.value = data
+  if (!form.value.payment_source_id && sources.value.length) {
+    form.value.payment_source_id = sources.value[0].id
   }
 }
 async function loadTransactions() {
@@ -32,6 +40,7 @@ async function submit() {
       amount: Number(form.value.amount),
       type: type.value,
       category_id: form.value.category_id,
+      payment_source_id: form.value.payment_source_id || null,
       note: form.value.note,
       occurred_at: new Date(form.value.occurred_at).toISOString(),
     })
@@ -50,7 +59,7 @@ function onTypeChange() {
   form.value.category_id = c ? c.id : null
 }
 
-onMounted(async () => { await loadCategories(); await loadTransactions() })
+onMounted(async () => { await loadCategories(); await loadSources(); await loadTransactions() })
 
 function currentMonth() {
   const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
@@ -61,6 +70,7 @@ function toLocalInput(d) {
 }
 function fmt(n) { return Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function catOf(id) { return categories.value.find(c => c.id === id) }
+function srcOf(id) { return sources.value.find(s => s.id === id) }
 </script>
 
 <template>
@@ -78,9 +88,13 @@ function catOf(id) { return categories.value.find(c => c.id === id) }
         </select>
       </div>
       <div class="grid">
-        <input v-model="form.occurred_at" type="datetime-local" />
+        <select v-model="form.payment_source_id">
+          <option :value="null">选择支付源</option>
+          <option v-for="s in sources" :key="s.id" :value="s.id">{{ s.icon }} {{ s.name }}</option>
+        </select>
         <input v-model="form.note" placeholder="备注（可选）" />
       </div>
+      <input v-model="form.occurred_at" type="datetime-local" class="full" />
       <button class="btn block" :disabled="loading" @click="submit">添加记录</button>
     </section>
 
@@ -95,7 +109,7 @@ function catOf(id) { return categories.value.find(c => c.id === id) }
           <span class="ico">{{ catOf(t.category_id)?.icon || '💰' }}</span>
           <div class="meta">
             <div class="name">{{ catOf(t.category_id)?.name || '未分类' }}
-              <span class="muted small">· {{ t.note || '无备注' }}</span>
+              <span class="muted small">· {{ srcOf(t.payment_source_id)?.icon || '💳' }} {{ srcOf(t.payment_source_id)?.name || '无支付源' }}<template v-if="t.note"> · {{ t.note }}</template></span>
             </div>
             <div class="muted small">{{ new Date(t.occurred_at).toLocaleString('zh-CN') }}</div>
           </div>
@@ -116,6 +130,7 @@ function catOf(id) { return categories.value.find(c => c.id === id) }
 }
 .type-toggle button.on { background: var(--primary); color: #fff; border-color: var(--primary); }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.full { width: 100%; margin-bottom: 10px; }
 .btn.block { width: 100%; margin-top: 4px; }
 .list { list-style: none; padding: 0; margin: 10px 0 0; }
 .item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }

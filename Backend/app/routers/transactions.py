@@ -14,6 +14,7 @@ def list_transactions(
     month: str | None = Query(None, description="YYYY-MM"),
     type: str | None = None,
     category_id: int | None = None,
+    payment_source_id: int | None = None,
     db: Session = Depends(get_db),
 ):
     q = db.query(models.Transaction)
@@ -23,6 +24,8 @@ def list_transactions(
         q = q.filter(models.Transaction.type == type)
     if category_id:
         q = q.filter(models.Transaction.category_id == category_id)
+    if payment_source_id:
+        q = q.filter(models.Transaction.payment_source_id == payment_source_id)
     return q.order_by(desc(models.Transaction.occurred_at)).all()
 
 

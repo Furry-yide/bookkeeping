@@ -17,10 +17,25 @@ class CategoryOut(CategoryBase):
     id: int
 
 
+class PaymentSourceBase(BaseModel):
+    name: str
+    icon: str = "💳"
+
+
+class PaymentSourceCreate(PaymentSourceBase):
+    pass
+
+
+class PaymentSourceOut(PaymentSourceBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+
 class TransactionBase(BaseModel):
     amount: float
     type: str  # income / expense
     category_id: int
+    payment_source_id: int | None = None
     note: str = ""
     occurred_at: datetime | None = None
 
@@ -33,6 +48,7 @@ class TransactionOut(TransactionBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
     category: CategoryOut | None = None
+    payment_source: PaymentSourceOut | None = None
 
 
 class BudgetBase(BaseModel):
