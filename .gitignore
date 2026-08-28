@@ -10,3 +10,7 @@ dist/
 
 # Env
 .venv/
+
+#log
+*.log
+.DS_Store
