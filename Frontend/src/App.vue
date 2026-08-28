@@ -20,11 +20,13 @@ onMounted(loadMe)
 <template>
   <div class="app">
     <header class="topbar">
-      <div class="brand">🐱 小猫的账本</div>
-      <div class="auth">
-        <BackupMenu />
-        <button v-if="isLoggedIn" class="me" @click="logout">👤 {{ authState.user || '已登录' }} · 退出</button>
-        <button v-else class="me ghost" @click="openLogin">🔓 登录</button>
+      <div class="brand">
+        <span>🐱 小猫的账本</span>
+        <div class="auth">
+          <BackupMenu />
+          <button v-if="isLoggedIn" class="me" @click="logout">👤 {{ authState.user || '已登录' }} · 退出</button>
+          <button v-else class="me ghost" @click="openLogin">🔓 登录</button>
+        </div>
       </div>
       <nav class="tabs">
         <router-link
@@ -50,8 +52,8 @@ onMounted(loadMe)
   background: var(--bg);
   padding: 16px 0 10px;
 }
-.brand { font-size: 20px; font-weight: 800; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-.auth { position: absolute; top: 16px; right: 14px; display: flex; align-items: center; gap: 10px; }
+.brand { font-size: 20px; font-weight: 800; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.auth { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .me { border: none; background: var(--primary); color: #fff; font-weight: 600; padding: 6px 12px; border-radius: 10px; font-size: 13px; }
 .me.ghost { background: #fff; color: var(--muted); box-shadow: var(--shadow); }
 .tabs { display: flex; gap: 8px; }

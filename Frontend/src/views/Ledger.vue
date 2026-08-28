@@ -109,9 +109,9 @@ function srcOf(id) { return sources.value.find(s => s.id === id) }
     </section>
 
     <section class="card">
-      <div class="row spread">
+      <div class="row spread list-head">
         <h3 class="title" style="margin:0">明细</h3>
-        <input v-model="month" type="month" @change="loadTransactions" />
+        <input v-model="month" type="month" class="month-pick" @change="loadTransactions" />
       </div>
       <div class="filters">
         <select v-model="filterType" @change="loadTransactions">
@@ -159,6 +159,12 @@ function srcOf(id) { return sources.value.find(s => s.id === id) }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
 .full { width: 100%; margin-bottom: 10px; }
 .btn.block { width: 100%; margin-top: 4px; }
+.list-head { flex-wrap: wrap; }
+.month-pick { max-width: 100%; min-width: 0; }
+@media (max-width: 480px) {
+  .list-head .title { width: 100%; }
+  .full { width: 94%; max-width: 100%; min-width: 0; }
+}
 .list { list-style: none; padding: 0; margin: 10px 0 0; }
 .filters { display: flex; gap: 8px; margin: 14px 0 4px; flex-wrap: wrap; }
 .filters select { flex: 1; min-width: 120px; }
