@@ -13,13 +13,16 @@ router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 @router.get("", response_model=list[schemas.TransactionOut])
 def list_transactions(
     month: str | None = Query(None, description="YYYY-MM"),
+    day: str | None = Query(None, description="YYYY-MM-DD"),
     type: str | None = None,
     category_id: int | None = None,
     payment_source_id: int | None = None,
     db: Session = Depends(get_db),
 ):
     q = db.query(models.Transaction)
-    if month:
+    if day:
+        q = q.filter(func.strftime("%Y-%m-%d", models.Transaction.occurred_at) == day)
+    elif month:
         q = q.filter(func.strftime("%Y-%m", models.Transaction.occurred_at) == month)
     if type:
         q = q.filter(models.Transaction.type == type)

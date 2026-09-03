@@ -3,11 +3,66 @@ import { ref, onMounted, computed } from 'vue'
 import http from '../api'
 
 const month = ref(currentMonth())
+const selectedDay = ref(currentDate())
 const summary = ref({ total_income: 0, total_expense: 0, balance: 0, by_category: [] })
 const sourceBalances = ref([])
+const monthTransactions = ref([])
 
 const palette = ['#ff9a3c','#ff5b5b','#2ecc71','#5b8def','#a66bff','#ffce54','#3ec9c9','#ff7eb6','#9aa0b4']
 const total = computed(() => summary.value.by_category.reduce((s, c) => s + c.total, 0))
+
+const calendarDays = computed(() => {
+  const [y, m] = month.value.split('-').map(Number)
+  const firstDay = new Date(y, m - 1, 1).getDay()
+  const daysInMonth = new Date(y, m, 0).getDate()
+  const expenseByDay = {}
+  const incomeByDay = {}
+  monthTransactions.value.forEach(t => {
+    const d = t.occurred_at.slice(8, 10)
+    if (t.type === 'expense') expenseByDay[d] = (expenseByDay[d] || 0) + t.amount
+    else if (t.type === 'income') incomeByDay[d] = (incomeByDay[d] || 0) + t.amount
+  })
+  const maxAmt = Math.max(...Object.values(expenseByDay), ...Object.values(incomeByDay), 1)
+  const days = []
+  for (let i = 0; i < firstDay; i++) days.push({ empty: true })
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dd = String(d).padStart(2, '0')
+    const dateStr = `${month.value}-${dd}`
+    const expense = expenseByDay[dd] || 0
+    const income = incomeByDay[dd] || 0
+    const expenseIntensity = expense > 0 ? Math.min(expense / maxAmt, 1) : 0
+    const incomeIntensity = income > 0 ? Math.min(income / maxAmt, 1) : 0
+    days.push({ day: d, dateStr, expense, income, expenseIntensity, incomeIntensity, empty: false })
+  }
+  return days
+})
+
+const selectedDayTransactions = computed(() => {
+  const prefix = selectedDay.value.slice(0, 10)
+  return monthTransactions.value.filter(t => t.occurred_at.slice(0, 10) === prefix)
+})
+const selectedDayTotal = computed(() => selectedDayTransactions.value.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0))
+const selectedDayIncome = computed(() => selectedDayTransactions.value.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0))
+const selectedDayCount = computed(() => selectedDayTransactions.value.length)
+
+async function load() {
+  const [{ data: summaryData }, { data: sb }, { data: txs }] = await Promise.all([
+    http.get('/stats/summary', { params: { month: month.value } }),
+    http.get('/stats/source-balances'),
+    http.get('/transactions', { params: { month: month.value } }),
+  ])
+  summary.value = summaryData
+  sourceBalances.value = sb
+  monthTransactions.value = txs
+}
+async function loadDay() {
+  const { data } = await http.get('/transactions', { params: { day: selectedDay.value } })
+  monthTransactions.value = data
+}
+function selectDay(dayObj) {
+  if (dayObj.empty) return
+  selectedDay.value = dayObj.dateStr
+}
 const segments = computed(() => {
   let acc = 0
   const t = total.value || 1
@@ -27,12 +82,6 @@ const donut = computed(() => {
   }))
 })
 
-async function load() {
-  const { data } = await http.get('/stats/summary', { params: { month: month.value } })
-  summary.value = data
-  const { data: sb } = await http.get('/stats/source-balances')
-  sourceBalances.value = sb
-}
 async function exportCsv() {
   const [{ data: txs }, { data: cats }, { data: srcs }] = await Promise.all([
     http.get('/transactions', { params: { month: month.value } }),
@@ -77,6 +126,9 @@ onMounted(load)
 function currentMonth() {
   const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
 }
+function currentDate() {
+  const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
 function fmt(n) { return Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 </script>
 
@@ -91,6 +143,57 @@ function fmt(n) { return Number(n).toLocaleString('zh-CN', { minimumFractionDigi
         <div class="kpi"><div class="lbl">收入</div><div class="income v">{{ fmt(summary.total_income) }}</div></div>
         <div class="kpi"><div class="lbl">支出</div><div class="expense v">{{ fmt(summary.total_expense) }}</div></div>
         <div class="kpi"><div class="lbl">结余</div><div class="v" :class="summary.balance>=0?'income':'expense'">{{ fmt(summary.balance) }}</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="row spread">
+        <h3 class="title" style="margin:0">月度日历</h3>
+        <input v-model="month" type="month" @change="load" />
+      </div>
+      <div class="cal-header">
+        <span v-for="w in ['日','一','二','三','四','五','六']" :key="w">{{ w }}</span>
+      </div>
+      <div class="cal-grid">
+        <div
+          v-for="(d, i) in calendarDays" :key="i"
+          class="cal-cell"
+          :class="{ empty: d.empty, selected: d.dateStr === selectedDay }"
+          :style="d.expense > 0 ? { background: `rgba(255,91,91,${0.08 + d.expenseIntensity * 0.5})` } : d.income > 0 ? { background: `rgba(46,204,113,${0.08 + d.incomeIntensity * 0.5})` } : {}"
+          @click="selectDay(d)"
+        >
+          <template v-if="!d.empty">
+            <span class="cal-day">{{ d.day }}</span>
+            <span v-if="d.expense > 0" class="cal-amt expense">{{ fmt(d.expense) }}</span>
+            <span v-if="d.income > 0" class="cal-amt income">{{ fmt(d.income) }}</span>
+          </template>
+        </div>
+      </div>
+      <div class="day-detail">
+        <div class="row spread" style="margin-bottom:10px">
+          <h4 class="title" style="margin:0;font-size:14px">{{ selectedDay }} 明细</h4>
+          <span class="muted small">
+            <span v-if="selectedDayIncome > 0" class="income">收入 {{ fmt(selectedDayIncome) }}</span>
+            <span v-if="selectedDayIncome > 0 && selectedDayTotal > 0"> · </span>
+            <span v-if="selectedDayTotal > 0" class="expense">支出 {{ fmt(selectedDayTotal) }}</span>
+            · {{ selectedDayCount }} 笔
+          </span>
+        </div>
+        <div v-if="selectedDayTransactions.length" class="day-list">
+          <div v-for="t in selectedDayTransactions" :key="t.id" class="day-row">
+            <span class="day-ico" v-if="t.type==='transfer'">🔁</span>
+            <span class="day-ico" v-else-if="t.type==='income'">{{ t.category?.icon || '💰' }}</span>
+            <span class="day-ico" v-else>{{ t.category?.icon || '📝' }}</span>
+            <span class="day-info">
+              <span class="day-cat">{{ t.type==='transfer' ? '转账' : (t.category?.name || '') }}</span>
+              <span class="day-src muted small">{{ t.payment_source?.name || '' }}<template v-if="t.transfer_to"> → {{ t.transfer_to.name }}</template> · {{ new Date(t.occurred_at).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'}) }}</span>
+              <span v-if="t.note" class="day-note muted small">{{ t.note }}</span>
+            </span>
+            <span v-if="t.type==='transfer'" class="day-amt transfer">⇄ {{ fmt(t.amount) }}</span>
+            <span v-else :class="t.type" class="day-amt">{{ t.type==='income'?'+':'-' }}{{ fmt(t.amount) }}</span>
+          </div>
+        </div>
+        <p v-else class="muted" style="text-align:center;padding:20px 0">点击日历中的日期查看明细</p>
       </div>
     </section>
 
@@ -158,4 +261,27 @@ function fmt(n) { return Number(n).toLocaleString('zh-CN', { minimumFractionDigi
 .src-ico { font-size: 20px; width: 36px; height: 36px; display: grid; place-items: center; background: var(--bg); border-radius: 10px; }
 .src-name { font-weight: 600; width: 90px; }
 .src-bal { margin-left: auto; font-weight: 800; font-size: 16px; }
+.day-stats { display: flex; gap: 10px; margin-top: 14px; }
+.day-list { margin-top: 14px; display: flex; flex-direction: column; }
+.day-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.day-row:last-child { border-bottom: none; }
+.day-ico { font-size: 20px; width: 36px; height: 36px; display: grid; place-items: center; background: var(--bg); border-radius: 10px; flex: none; }
+.day-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.day-cat { font-weight: 600; font-size: 14px; }
+.day-src { font-size: 12px; }
+.day-note { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.day-amt { font-weight: 800; font-size: 15px; flex: none; }
+.cal-header { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 12px; color: var(--muted); margin-top: 14px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 8px; }
+.cal-cell { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; transition: all 0.15s; position: relative; }
+.cal-cell:hover { background: var(--border); }
+.cal-cell.empty { cursor: default; }
+.cal-cell.empty:hover { background: transparent; }
+.cal-cell.selected { outline: 2px solid var(--primary); }
+.cal-day { font-size: 14px; font-weight: 600; }
+.cal-amt { font-size: 10px; margin-top: 1px; font-weight: 700; }
+.cal-amt.expense { color: #ff5b5b; }
+.cal-amt.income { color: #2ecc71; }
+.day-detail { margin-top: 16px; }
+.day-list { display: flex; flex-direction: column; }
 </style>
