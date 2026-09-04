@@ -44,6 +44,37 @@ const selectedDayTransactions = computed(() => {
 const selectedDayTotal = computed(() => selectedDayTransactions.value.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0))
 const selectedDayIncome = computed(() => selectedDayTransactions.value.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0))
 const selectedDayCount = computed(() => selectedDayTransactions.value.length)
+const showDayDetail = ref(false)
+const dayByCategory = computed(() => {
+  const map = {}
+  selectedDayTransactions.value.filter(t => t.type === 'expense').forEach(t => {
+    const name = t.category?.name || '其他'
+    const icon = t.category?.icon || '📝'
+    if (!map[name]) map[name] = { name, icon, total: 0, count: 0 }
+    map[name].total += t.amount
+    map[name].count++
+  })
+  return Object.values(map).sort((a, b) => b.total - a.total)
+})
+const dayTotalForChart = computed(() => dayByCategory.value.reduce((s, c) => s + c.total, 0))
+const daySegments = computed(() => {
+  let acc = 0
+  const t = dayTotalForChart.value || 1
+  return dayByCategory.value.map((c, i) => {
+    const frac = c.total / t
+    const seg = { ...c, color: palette[i % palette.length], frac, offset: acc }
+    acc += frac
+    return seg
+  })
+})
+const dayDonut = computed(() => {
+  const r = 40, c = 2 * Math.PI * r
+  return daySegments.value.map(s => ({
+    ...s,
+    dash: `${s.frac * c} ${c}`,
+    offset: -s.offset * c,
+  }))
+})
 
 async function load() {
   const [{ data: summaryData }, { data: sb }, { data: txs }] = await Promise.all([
@@ -148,6 +179,35 @@ function fmt(n) { return Number(n).toLocaleString('zh-CN', { minimumFractionDigi
 
     <section class="card">
       <div class="row spread">
+        <h3 class="title" style="margin:0">日支出分类</h3>
+        <span class="muted small">{{ selectedDay }}</span>
+      </div>
+      <div v-if="dayDonut.length" class="chart-wrap">
+        <svg viewBox="0 0 100 100" class="donut donut-sm">
+          <circle cx="50" cy="50" r="40" fill="none" stroke="#eee" stroke-width="14" />
+          <circle
+            v-for="(s, i) in dayDonut" :key="i"
+            cx="50" cy="50" r="40" fill="none"
+            :stroke="s.color" stroke-width="14"
+            :stroke-dasharray="s.dash"
+            :stroke-dashoffset="s.offset"
+            transform="rotate(-90 50 50)"
+          />
+        </svg>
+        <div class="legend">
+          <div v-for="(s, i) in dayDonut" :key="i" class="lg">
+            <span class="dot" :style="{ background: s.color }"></span>
+            <span class="lg-name">{{ s.icon }} {{ s.name }}</span>
+            <span class="muted small">{{ s.count }}笔 {{ (s.frac*100).toFixed(1) }}%</span>
+            <span class="expense">{{ fmt(s.total) }}</span>
+          </div>
+        </div>
+      </div>
+      <p v-else class="muted" style="text-align:center;padding:16px 0">该日暂无支出</p>
+    </section>
+
+    <section class="card">
+      <div class="row spread">
         <h3 class="title" style="margin:0">月度日历</h3>
         <input v-model="month" type="month" @change="load" />
       </div>
@@ -170,16 +230,17 @@ function fmt(n) { return Number(n).toLocaleString('zh-CN', { minimumFractionDigi
         </div>
       </div>
       <div class="day-detail">
-        <div class="row spread" style="margin-bottom:10px">
+        <div class="row spread toggle-header" @click="showDayDetail = !showDayDetail">
           <h4 class="title" style="margin:0;font-size:14px">{{ selectedDay }} 明细</h4>
           <span class="muted small">
             <span v-if="selectedDayIncome > 0" class="income">收入 {{ fmt(selectedDayIncome) }}</span>
             <span v-if="selectedDayIncome > 0 && selectedDayTotal > 0"> · </span>
             <span v-if="selectedDayTotal > 0" class="expense">支出 {{ fmt(selectedDayTotal) }}</span>
             · {{ selectedDayCount }} 笔
+            <span class="toggle-arrow">{{ showDayDetail ? '▲' : '▼' }}</span>
           </span>
         </div>
-        <div v-if="selectedDayTransactions.length" class="day-list">
+        <div v-if="showDayDetail && selectedDayTransactions.length" class="day-list">
           <div v-for="t in selectedDayTransactions" :key="t.id" class="day-row">
             <span class="day-ico" v-if="t.type==='transfer'">🔁</span>
             <span class="day-ico" v-else-if="t.type==='income'">{{ t.category?.icon || '💰' }}</span>
@@ -193,7 +254,7 @@ function fmt(n) { return Number(n).toLocaleString('zh-CN', { minimumFractionDigi
             <span v-else :class="t.type" class="day-amt">{{ t.type==='income'?'+':'-' }}{{ fmt(t.amount) }}</span>
           </div>
         </div>
-        <p v-else class="muted" style="text-align:center;padding:20px 0">点击日历中的日期查看明细</p>
+        <p v-else-if="showDayDetail && !selectedDayTransactions.length" class="muted" style="text-align:center;padding:20px 0">该日暂无记录</p>
       </div>
     </section>
 
@@ -249,10 +310,14 @@ function fmt(n) { return Number(n).toLocaleString('zh-CN', { minimumFractionDigi
 .v { font-size: 18px; font-weight: 800; margin-top: 4px; }
 .chart-wrap { display: flex; gap: 20px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
 .donut { width: 160px; height: 160px; flex: none; }
+.donut-sm { width: 120px; height: 120px; }
 .legend { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 8px; }
 .lg { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .lg-name { flex: 1; }
+.toggle-header { cursor: pointer; user-select: none; }
+.toggle-header:hover { opacity: 0.8; }
+.toggle-arrow { margin-left: 8px; font-size: 10px; }
 .btn.small { padding: 5px 10px; font-size: 12px; }
 .small { font-size: 12px; }
 .src-list { display: flex; flex-direction: column; gap: 4px; }
@@ -262,7 +327,7 @@ function fmt(n) { return Number(n).toLocaleString('zh-CN', { minimumFractionDigi
 .src-name { font-weight: 600; width: 90px; }
 .src-bal { margin-left: auto; font-weight: 800; font-size: 16px; }
 .day-stats { display: flex; gap: 10px; margin-top: 14px; }
-.day-list { margin-top: 14px; display: flex; flex-direction: column; }
+.day-list { margin-top: 10px; display: flex; flex-direction: column; }
 .day-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .day-row:last-child { border-bottom: none; }
 .day-ico { font-size: 20px; width: 36px; height: 36px; display: grid; place-items: center; background: var(--bg); border-radius: 10px; flex: none; }
@@ -283,5 +348,4 @@ function fmt(n) { return Number(n).toLocaleString('zh-CN', { minimumFractionDigi
 .cal-amt.expense { color: #ff5b5b; }
 .cal-amt.income { color: #2ecc71; }
 .day-detail { margin-top: 16px; }
-.day-list { display: flex; flex-direction: column; }
 </style>
