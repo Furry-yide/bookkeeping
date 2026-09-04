@@ -18,8 +18,16 @@ if [ -x "$BACKEND/venv/bin/python" ]; then
   PY="$BACKEND/venv/bin/python"
   echo "使用虚拟环境 Backend/venv"
 else
-  PY="python3"
-  python3 -m pip install -q -r requirements.txt
+  echo "创建虚拟环境..."
+  python3 -m venv "$BACKEND/venv" || {
+    echo "venv 模块不可用，尝试安装 python3-venv..."
+    apt-get update -qq && apt-get install -y -qq python3-venv python3-pip
+    python3 -m venv "$BACKEND/venv"
+  }
+  PY="$BACKEND/venv/bin/python"
+  echo "安装后端依赖..."
+  "$PY" -m pip install --upgrade pip -q 2>/dev/null || true
+  "$PY" -m pip install -q -r requirements.txt
 fi
 nohup "$PY" -m uvicorn app.main:app --host 0.0.0.0 --port "$BE_PORT" > "$LOGS/backend.log" 2>&1 &
 echo $! > "$PID/backend.pid"
