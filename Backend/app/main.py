@@ -29,24 +29,6 @@ def on_startup():
     init_db()
     _seed_default_categories()
     _seed_default_payment_sources()
-    _seed_default_user()
-
-
-def _seed_default_user():
-    from app.database import SessionLocal
-    from app import models
-    from app.security import hash_password
-
-    db = SessionLocal()
-    try:
-        if db.query(models.User).filter(models.User.username == "Furry-yide").count() == 0:
-            db.add(models.User(
-                username="Furry-yide",
-                password_hash=hash_password("Dede200822"),
-            ))
-            db.commit()
-    finally:
-        db.close()
 
 
 def _seed_default_categories():

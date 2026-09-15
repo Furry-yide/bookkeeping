@@ -39,6 +39,27 @@ def login(payload: LoginIn, db: Session = Depends(get_db)):
     return {"access_token": create_token(user.username)}
 
 
+@router.get("/status")
+def auth_status(db: Session = Depends(get_db)):
+    return {"initialized": db.query(models.User).count() > 0}
+
+
+@router.post("/setup", response_model=LoginOut)
+def setup(payload: LoginIn, db: Session = Depends(get_db)):
+    if db.query(models.User).count() > 0:
+        raise HTTPException(400, "系统已初始化，请直接登录")
+    username = payload.username.strip()
+    if not username or not payload.password:
+        raise HTTPException(400, "用户名和密码不能为空")
+    if len(payload.password) < 6:
+        raise HTTPException(400, "密码至少 6 位")
+    user = models.User(username=username, password_hash=hash_password(payload.password))
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {"access_token": create_token(user.username)}
+
+
 @router.get("/me")
 def me(username: str = Depends(require_auth)):
     return {"username": username}

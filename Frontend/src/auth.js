@@ -11,6 +11,21 @@ async function login(username, password) {
   ui.showLogin = false
   await loadMe()
 }
+async function checkStatus() {
+  try {
+    const { data } = await http.get('/auth/status')
+    if (!data.initialized) ui.showSetup = true
+  } catch {
+    // 后端未就绪时忽略，正常使用只读模式
+  }
+}
+async function setup(username, password) {
+  const { data } = await http.post('/auth/setup', { username, password })
+  authState.token = data.access_token
+  localStorage.setItem('cat_token', authState.token)
+  ui.showSetup = false
+  await loadMe()
+}
 async function loadMe() {
   if (!isLoggedIn.value) return
   try {
@@ -27,4 +42,4 @@ function logout() {
 }
 function openLogin() { ui.showLogin = true }
 
-export { authState, isLoggedIn, login, logout, openLogin, loadMe }
+export { authState, isLoggedIn, login, logout, openLogin, loadMe, checkStatus, setup }

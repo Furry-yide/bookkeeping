@@ -2,8 +2,9 @@
 import { useRoute } from 'vue-router'
 import { computed, onMounted } from 'vue'
 import LoginModal from './components/LoginModal.vue'
+import SetupModal from './components/SetupModal.vue'
 import BackupMenu from './components/BackupMenu.vue'
-import { isLoggedIn, authState, logout, openLogin, loadMe } from './auth'
+import { isLoggedIn, authState, logout, openLogin, loadMe, checkStatus } from './auth'
 
 const route = useRoute()
 const tabs = [
@@ -14,7 +15,10 @@ const tabs = [
 ]
 const active = computed(() => route.path)
 
-onMounted(loadMe)
+onMounted(async () => {
+  await checkStatus()
+  await loadMe()
+})
 </script>
 
 <template>
@@ -42,6 +46,7 @@ onMounted(loadMe)
       <router-view />
     </main>
     <LoginModal />
+    <SetupModal />
   </div>
 </template>
 
